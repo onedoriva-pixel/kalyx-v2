@@ -1105,23 +1105,24 @@ function AdminDashboardInner() {
   const [sharedTasksCount, setSharedTasksCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  const loadUserData = useCallback(async (profilesList) => {
+    const userDataResults = await Promise.all(
+      profilesList.map(async p => {
+        try {
+          const dSnap = await getDoc(doc(db, "userdata", p.id));
+          return dSnap.exists() ? (dSnap.data().data || {}) : {};
+        } catch { return {}; }
+      })
+    );
+    setAllUserData(userDataResults);
+  }, []);
+
   useEffect(() => {
     const unsubs = [];
 
-    const unsubProfiles = onSnapshot(collection(db, "profiles"), async (snap) => {
+    const unsubProfiles = onSnapshot(collection(db, "profiles"), (snap) => {
       const profilesList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       setUsers(profilesList);
-
-      const userDataResults = await Promise.all(
-        profilesList.map(async p => {
-          try {
-            const dSnap = await getDoc(doc(db, "userdata", p.id));
-            return dSnap.exists() ? (dSnap.data().data || {}) : {};
-          } catch { return {}; }
-        })
-      );
-      setAllUserData(userDataResults);
-      setLoading(false);
     });
     unsubs.push(unsubProfiles);
 
@@ -1130,8 +1131,15 @@ function AdminDashboardInner() {
     });
     unsubs.push(unsubTasks);
 
+    // Load all user data once on mount
+    getDocs(collection(db, "profiles")).then(async (snap) => {
+      const profilesList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      await loadUserData(profilesList);
+      setLoading(false);
+    });
+
     return () => unsubs.forEach(u => u());
-  }, []);
+  }, [loadUserData]);
 
   if (loading) {
     return (
