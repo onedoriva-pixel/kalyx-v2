@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
-import { doc, onSnapshot, setDoc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import {
   PlaneTakeoff, Plus, CheckCircle2, XCircle, BarChart3,
   Calendar, Pencil, Eye, Trash2, Search, X, Save, User,
@@ -550,9 +550,15 @@ function SettingsView({ user }) {
 
   useEffect(() => {
     if (!user) return;
-    getDoc(doc(db, "profiles", user.uid)).then(snap => {
+    (async () => {
+      let snap = await getDoc(doc(db, "profiles", user.uid));
+      if (!snap.exists()) {
+        const q = query(collection(db, "profiles"), where("email", "==", user.email));
+        const r = await getDocs(q);
+        if (!r.empty) snap = r.docs[0];
+      }
       if (snap.exists()) setProfile({ name: snap.data().name || "", email: user.email || "", username: snap.data().username || "" });
-    });
+    })();
   }, [user]);
 
   const handleSave = async () => {

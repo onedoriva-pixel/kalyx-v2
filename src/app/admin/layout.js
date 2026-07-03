@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { 
   LayoutDashboard, Users, CheckSquare, Map, 
   FileEdit, PlaneTakeoff, Database, Search, 
@@ -40,7 +40,17 @@ export default function AdminLayout({ children }) {
       if (user) {
         setUser(user);
         try {
-          const docSnap = await getDoc(doc(db, "profiles", user.uid));
+          let docSnap = await getDoc(doc(db, "profiles", user.uid));
+          
+          // Fallback: look up by email if UID-based lookup fails
+          if (!docSnap.exists()) {
+            const q = query(collection(db, "profiles"), where("email", "==", user.email));
+            const results = await getDocs(q);
+            if (!results.empty) {
+              docSnap = results.docs[0];
+            }
+          }
+          
           if (docSnap.exists()) {
             const data = docSnap.data();
             setProfile(data);

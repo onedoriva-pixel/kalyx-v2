@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { auth, db } from "@/lib/firebase"
-import { doc, getDoc } from "firebase/firestore"
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore"
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "firebase/auth"
 import { useRouter } from "next/navigation"
 import { Shield, Lock, Eye, EyeOff, User, Save, AlertTriangle, ArrowLeft } from "lucide-react"
@@ -26,7 +26,12 @@ export default function SettingsPage() {
       if (!u) { router.replace("/login"); return }
       setUser(u)
       try {
-        const snap = await getDoc(doc(db, "profiles", u.uid))
+        let snap = await getDoc(doc(db, "profiles", u.uid))
+        if (!snap.exists()) {
+          const q = query(collection(db, "profiles"), where("email", "==", u.email))
+          const results = await getDocs(q)
+          if (!results.empty) snap = results.docs[0]
+        }
         if (snap.exists()) setProfile(snap.data())
       } catch (e) {
         console.error("Failed to load profile", e)

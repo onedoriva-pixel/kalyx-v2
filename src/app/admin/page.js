@@ -98,6 +98,7 @@ function UserModal({ user, onSave, onClose }) {
 
       setDone(true);
       onSave();
+      setTimeout(() => onClose(), 1500);
     } catch (err) {
       setError(err.message);
     } finally {

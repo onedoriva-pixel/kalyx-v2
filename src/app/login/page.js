@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
-import { setDoc, doc, getDoc } from "firebase/firestore";
+import { setDoc, doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import { Mail, Lock, Loader2, LogIn, UserPlus, User } from "lucide-react";
@@ -34,14 +34,22 @@ export default function Login() {
     try {
       const userCred = await signInWithEmailAndPassword(auth, email, password);
       
-      // Fetch profile to determine role
-      const profileSnap = await getDoc(doc(db, "profiles", userCred.user.uid));
+      // Fetch profile — try by UID first, then fallback to email lookup
+      let profileSnap = await getDoc(doc(db, "profiles", userCred.user.uid));
+      
+      if (!profileSnap.exists()) {
+        const q = query(collection(db, "profiles"), where("email", "==", email));
+        const results = await getDocs(q);
+        if (!results.empty) {
+          profileSnap = results.docs[0];
+        }
+      }
+      
       let route = "/executive-task";
       
       if (profileSnap.exists()) {
         const data = profileSnap.data();
         const role = (data.role || "").trim();
-        // Check admin first — covers role:"admin", is_admin, isAdmin
         if (role === "admin" || data.is_admin || data.isAdmin) {
           route = "/admin";
         } else if (role === "executive_path") {
