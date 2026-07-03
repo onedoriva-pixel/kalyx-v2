@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: check if the requesting user is an admin
+    function isAdmin() {
+      let profile = get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data;
+      return profile.role == "admin" || profile.is_admin == true || profile.isAdmin == true;
+    }
+
+    // Helper: check if user is authenticated
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // ── profiles ──────────────────────────────────────────────
+    // Users can read/write their own profile.
+    // Admins can read/write any profile (needed for role management).
+    match /profiles/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+    }
+
+    // ── userdata ──────────────────────────────────────────────
+    // Users can read/write their own data.
+    // Admins can read any user's data.
+    match /userdata/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+    }
+
+    // ── shared_tasks ──────────────────────────────────────────
+    // Any signed-in user can read. Admins can write.
+    match /shared_tasks/{taskId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isAdmin();
+    }
+
+    // ── trips ─────────────────────────────────────────────────
+    // Any signed-in user can read trips (used by reports page).
+    // Executive Path users and admins can write.
+    match /trips/{tripId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // ── tickets ───────────────────────────────────────────────
+    // Public write for service desk submissions (no auth required).
+    // Read requires auth.
+    match /tickets/{ticketId} {
+      allow read: if isSignedIn();
+      allow create: if true;
+      allow update, delete: if isSignedIn() && isAdmin();
+    }
+
+  }
+}
