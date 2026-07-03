@@ -609,7 +609,7 @@ function AccomplishmentsGroupedView({ items, onAdd, onEdit, onDelete, onView, on
                         {/* Entries (only when category expanded) */}
                         {isCatOpen && (
                           <div>
-                            {catEntries.length > 20 ? (
+                            {catName === "Uploading/Encoding" && catEntries.length > 20 ? (
                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-outline-variant/20">
                                 {Array.from({ length: Math.ceil(catEntries.length / 20) }, (_, col) => (
                                   <div key={col} className="bg-surface-container-lowest">
