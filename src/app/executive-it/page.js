@@ -10,7 +10,7 @@ import {
   History, Package, CheckCircle, Activity, Clock, BookOpen,
   Plus, Pencil, Eye, Trash2, Search, X, Save, AlertTriangle,
   TrendingUp, Download, Upload, ChevronRight, ChevronDown, Circle, CheckCircle2, FileSpreadsheet,
-  Play, Square, Folder,
+  Play, Square, Folder, ChevronLeft,
 } from "lucide-react";
 import { downloadITServicesXLS, downloadITMaintenanceXLS, downloadITAccomplishmentsXLS } from "@/lib/exportXLS";
 
@@ -1183,6 +1183,142 @@ function MovementModal({ item, type, onSave, onClose }) {
   );
 }
 
+// ============================================================
+// TASK KANBAN BOARD
+// ============================================================
+const KANBAN_COLUMNS = [
+  { key: "pending", label: "Pending", color: "border-t-blue-400 bg-blue-50/30 dark:bg-blue-950/10" },
+  { key: "in-progress", label: "In Progress", color: "border-t-amber-400 bg-amber-50/30 dark:bg-amber-950/10" },
+  { key: "done", label: "Done", color: "border-t-emerald-400 bg-emerald-50/30 dark:bg-emerald-950/10" },
+  { key: "cancelled", label: "Cancelled", color: "border-t-slate-400 bg-slate-50/30 dark:bg-slate-950/10" },
+];
+
+const NEXT_STATUS = { pending: "in-progress", "in-progress": "done", done: "done", cancelled: "cancelled" };
+const PREV_STATUS = { "in-progress": "pending", done: "in-progress", pending: "pending", cancelled: "pending" };
+
+function TaskKanbanView({ items, onAdd, onEdit, onDelete, onSave }) {
+  const [search, setSearch] = useState("");
+
+  const filtered = items.filter(item =>
+    !search || Object.values(item).some(v => String(v).toLowerCase().includes(search.toLowerCase()))
+  );
+
+  const moveTask = async (taskId, newStatus) => {
+    const updated = items.map(t => t.id === taskId ? { ...t, status: newStatus } : t);
+    await onSave(updated);
+  };
+
+  const grouped = useMemo(() => {
+    const map = {};
+    for (const item of filtered) {
+      const s = item.status || "pending";
+      if (!map[s]) map[s] = [];
+      map[s].push(item);
+    }
+    return map;
+  }, [filtered]);
+
+  const total = items.length;
+  const pending = items.filter(t => (t.status || "pending") === "pending").length;
+  const inProgress = items.filter(t => t.status === "in-progress").length;
+  const done = items.filter(t => t.status === "done").length;
+
+  return (
+    <div className="p-4 md:p-8 max-w-screen-2xl mx-auto animate-fade-in">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div>
+          <h2 className="text-3xl font-bold text-primary flex items-center gap-3">
+            <CheckSquare className="w-7 h-7 text-rose-500" /> IT Tasks
+          </h2>
+          <p className="text-on-surface-variant mt-1">{total} tasks</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex gap-2 text-xs text-on-surface-variant">
+            <span><span className="inline-block w-2 h-2 rounded-full bg-blue-400 mr-1" />{pending} Pending</span>
+            <span><span className="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1" />{inProgress} In Progress</span>
+            <span><span className="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1" />{done} Done</span>
+          </div>
+          <button onClick={onAdd}
+            className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-violet-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-sm">
+            <Plus className="w-4 h-4" /> New Task
+          </button>
+        </div>
+      </div>
+
+      <div className="relative mb-5">
+        <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+        <input value={search} onChange={e => setSearch(e.target.value)}
+          className="w-full bg-surface-container border border-outline-variant rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-primary transition-colors"
+          placeholder="Search tasks..." />
+      </div>
+
+      {items.length === 0 ? (
+        <div className="text-center py-20 text-on-surface-variant">
+          <CheckSquare className="w-16 h-16 text-on-surface-variant/20 mx-auto mb-4" />
+          <p className="font-medium">No tasks yet. Create your first task!</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {KANBAN_COLUMNS.map(col => {
+            const colTasks = grouped[col.key] || [];
+            return (
+              <div key={col.key} className={`rounded-2xl border border-outline-variant border-t-4 ${col.color} p-4 min-h-[300px]`}>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-sm text-on-surface">{col.label}</h3>
+                  <span className="text-xs font-semibold bg-surface-container px-2 py-0.5 rounded-full text-on-surface-variant">{colTasks.length}</span>
+                </div>
+                <div className="space-y-3">
+                  {colTasks.sort((a, b) => ((a.dueDate || "") > (b.dueDate || "") ? 1 : -1)).map(task => (
+                    <div key={task.id} className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl p-3.5 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <span className="font-semibold text-sm text-primary flex-1 leading-snug">{task.title}</span>
+                        <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${SEVERITY_BADGE[task.priority] || ""} shrink-0`}>{task.priority || "—"}</span>
+                      </div>
+                      {task.description && (
+                        <p className="text-xs text-on-surface-variant line-clamp-2 mb-2">{task.description}</p>
+                      )}
+                      <div className="flex items-center justify-between text-xs text-on-surface-variant">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {task.assignedTo && <span className="truncate">{task.assignedTo}</span>}
+                          {task.dueDate && <span className="shrink-0">{fmtDate(task.dueDate)}</span>}
+                        </div>
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          {col.key !== "pending" && (
+                            <button onClick={() => moveTask(task.id, PREV_STATUS[col.key])}
+                              className="p-1 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Move left">
+                              <ChevronLeft className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {col.key !== "cancelled" && col.key !== "done" && (
+                            <button onClick={() => moveTask(task.id, NEXT_STATUS[col.key])}
+                              className="p-1 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Move right">
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {col.key !== "cancelled" && (
+                            <button onClick={() => onEdit(task)}
+                              className="p-1 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Edit">
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <button onClick={() => onDelete(task.id)}
+                            className="p-1 rounded-lg text-on-surface-variant hover:text-red-500 hover:bg-red-50 transition-colors" title="Delete">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function GenericListView({ title, icon, items, fields, columns, onAdd, onEdit, onDelete, onView, onExportXLS }) {
   const [search, setSearch] = useState("");
   const filtered = items.filter(item =>
@@ -2316,6 +2452,28 @@ function ExecutiveITDashboardInner() {
           onView={(item) => setViewRecord(item)}
           onDelete={(id) => handleDelete("it_inventory", id)}
           onSaveMovements={handleSaveMovements}
+        />
+      </>
+    );
+  }
+
+  // IT Tasks – Kanban board
+  if (view === "task") {
+    const list = userData.it_task || [];
+    const editing = modal && modal !== "new" ? modal : null;
+    return (
+      <>
+        {editing !== null || modal === "new" ? (
+          <RecordModal title="IT Tasks" fields={VIEWS_CONFIG.task.fields} record={editing}
+            onSave={(item) => handleSave(view, "it_task", item)} onClose={() => setModal(null)} />
+        ) : null}
+        <ViewDetailsModal record={viewRecord} title="IT Tasks" onClose={() => setViewRecord(null)} />
+        <TaskKanbanView
+          items={list}
+          onAdd={() => setModal("new")}
+          onEdit={(item) => setModal(item)}
+          onDelete={(id) => handleDelete("it_task", id)}
+          onSave={(updated) => saveKey("it_task", updated)}
         />
       </>
     );
