@@ -757,6 +757,127 @@ function ServicesGroupedView({ items, onAdd, onEdit, onDelete, onView, onExportX
   );
 }
 
+// ============================================================
+// MAINTENANCE GROUPED VIEW (by frequency type)
+// ============================================================
+function MaintenanceGroupedView({ items, onAdd, onEdit, onDelete, onView, onExportXLS }) {
+  const [search, setSearch] = useState("");
+  const [expandedGroups, setExpandedGroups] = useState({});
+
+  const filtered = items.filter(item =>
+    !search || Object.values(item).some(v => String(v).toLowerCase().includes(search.toLowerCase()))
+  );
+
+  const FREQ_ORDER = ["Daily", "Weekly", "Monthly", "Quarterly", "Annually", "One-time"];
+
+  const grouped = useMemo(() => {
+    const map = {};
+    for (const item of filtered) {
+      const freq = FREQ_ORDER.includes(item.frequency) ? item.frequency : "Other";
+      if (!map[freq]) map[freq] = { entries: [] };
+      map[freq].entries.push(item);
+    }
+    return Object.entries(map)
+      .sort(([a], [b]) => {
+        const ai = FREQ_ORDER.indexOf(a);
+        const bi = FREQ_ORDER.indexOf(b);
+        return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+      })
+      .map(([key, val]) => ({
+        key,
+        entries: val.entries.sort((a, b) => ((b.inspectionDate || "") > (a.inspectionDate || "") ? 1 : -1)),
+      }));
+  }, [filtered]);
+
+  const totalEntries = filtered.length;
+
+  return (
+    <div className="p-4 md:p-8 max-w-screen-2xl mx-auto animate-fade-in">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div>
+          <h2 className="text-3xl font-bold text-primary flex items-center gap-3">
+            <Wrench className="w-7 h-7 text-indigo-500" /> IT Maintenance
+          </h2>
+          <p className="text-on-surface-variant mt-1">{totalEntries} records</p>
+        </div>
+        <div className="flex gap-2">
+          {onExportXLS && (
+            <button onClick={onExportXLS}
+              className="flex items-center gap-2 border border-outline-variant text-on-surface-variant px-4 py-2.5 rounded-xl font-semibold hover:bg-surface-container transition-colors">
+              <FileSpreadsheet className="w-4 h-4" /> Export XLS
+            </button>
+          )}
+          <button onClick={onAdd}
+            className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-violet-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-sm">
+            <Plus className="w-4 h-4" /> Add New
+          </button>
+        </div>
+      </div>
+
+      <div className="relative mb-5">
+        <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+        <input value={search} onChange={e => setSearch(e.target.value)}
+          className="w-full bg-surface-container border border-outline-variant rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-primary transition-colors"
+          placeholder="Search maintenance..." />
+      </div>
+
+      {grouped.length === 0 ? (
+        <div className="text-center py-20 text-on-surface-variant">
+          <Wrench className="w-16 h-16 text-on-surface-variant/20 mx-auto mb-4" />
+          <p className="font-medium">No records found</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {grouped.map(group => {
+            const isOpen = expandedGroups[group.key] ?? false;
+            return (
+              <div key={group.key} className="bg-surface-container-lowest border border-outline-variant rounded-2xl shadow-sm overflow-hidden">
+                <button onClick={() => setExpandedGroups(prev => ({ ...prev, [group.key]: !prev[group.key] }))}
+                  className="w-full flex items-center justify-between px-5 py-4 hover:bg-surface-container/60 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <Folder className={`w-5 h-5 transition-transform ${isOpen ? "text-indigo-400" : "text-amber-400"}`} />
+                    <span className="text-lg font-bold text-primary">{group.key} Maintenance</span>
+                    <span className="text-xs font-semibold bg-surface-container px-2.5 py-1 rounded-full text-on-surface-variant">{group.entries.length} entries</span>
+                  </div>
+                  <ChevronDown className={`w-5 h-5 text-on-surface-variant transition-transform ${isOpen ? "rotate-0" : "-rotate-90"}`} />
+                </button>
+                {isOpen && (
+                  <div className="border-t border-outline-variant/50">
+                    {group.entries.map(item => (
+                      <div key={item.id}
+                        className="flex items-start gap-3 px-5 py-3 border-b border-outline-variant/20 last:border-0 hover:bg-surface-container/30 transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-primary text-sm">{item.equipment || "—"}</span>
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-lg capitalize ${STATUS_BADGE[item.status] || ""}`}>{item.status || "—"}</span>
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-on-surface-variant">
+                            <span>{item.inspectedBy || "—"}</span>
+                            {item.location && <><span>•</span><span>{item.location}</span></>}
+                            <span>•</span><span>{fmtDate(item.inspectionDate)}</span>
+                          </div>
+                          {item.description && (
+                            <p className="text-xs text-on-surface-variant mt-1 line-clamp-2">{item.description}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {onView && <button onClick={() => onView(item)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors"><Eye className="w-3.5 h-3.5" /></button>}
+                          <button onClick={() => onEdit(item)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => onDelete(item.id)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function GenericListView({ title, icon, items, fields, columns, onAdd, onEdit, onDelete, onView, onExportXLS }) {
   const [search, setSearch] = useState("");
   const filtered = items.filter(item =>
@@ -1722,6 +1843,28 @@ function ExecutiveITDashboardInner() {
           onView={(item) => setViewRecord(item)}
           onDelete={(id) => handleDelete("it_services", id)}
           onExportXLS={() => downloadITServicesXLS(list)}
+        />
+      </>
+    );
+  }
+
+  // IT Maintenance – grouped by frequency (Quarterly, Weekly, etc.)
+  if (view === "maintenance") {
+    const list = (userData.it_maintenance || []).sort((a, b) => ((b.inspectionDate || "") > (a.inspectionDate || "") ? 1 : -1));
+    const editing = modal && modal !== "new" ? modal : null;
+    return (
+      <>
+        {editing !== null || modal === "new" ? (
+          <MaintenanceModal record={editing} onSave={(item) => handleSave(view, "it_maintenance", item)} onClose={() => setModal(null)} />
+        ) : null}
+        <ViewDetailsModal record={viewRecord} title="IT Maintenance" onClose={() => setViewRecord(null)} />
+        <MaintenanceGroupedView
+          items={list}
+          onAdd={() => setModal("new")}
+          onEdit={(item) => setModal(item)}
+          onView={(item) => setViewRecord(item)}
+          onDelete={(id) => handleDelete("it_maintenance", id)}
+          onExportXLS={() => downloadITMaintenanceXLS(list)}
         />
       </>
     );
