@@ -681,6 +681,8 @@ const VIEWS_CONFIG = {
     title: "Daily Accomplishments",
     icon: <CheckCircle className="w-7 h-7 text-emerald-500" />,
     key: "it_accomplishments",
+    sortKey: "date",
+    sortDir: "desc",
     fields: [
       { key: "title", label: "Title" },
       { key: "date", label: "Date" },
@@ -1398,7 +1400,15 @@ function ExecutiveITDashboardInner() {
   // All other configured views
   const config = VIEWS_CONFIG[view];
   if (config) {
-    const list = userData[config.key] || [];
+    let list = userData[config.key] || [];
+    if (config.sortKey) {
+      const dir = config.sortDir === "asc" ? 1 : -1;
+      list = [...list].sort((a, b) => {
+        const va = a[config.sortKey] || "";
+        const vb = b[config.sortKey] || "";
+        return va > vb ? dir : va < vb ? -dir : 0;
+      });
+    }
     const editing = modal && modal !== "new" ? modal : null;
     const getExportHandler = () => {
       if (config.key === "it_services") return () => downloadITServicesXLS(list);
