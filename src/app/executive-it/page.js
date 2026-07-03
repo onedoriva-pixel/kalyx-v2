@@ -609,25 +609,53 @@ function AccomplishmentsGroupedView({ items, onAdd, onEdit, onDelete, onView, on
                         {/* Entries (only when category expanded) */}
                         {isCatOpen && (
                           <div>
-                            {catEntries.map(item => (
-                              <div key={item.id}
-                                className="flex items-start gap-3 px-5 py-3 pl-12 border-b border-outline-variant/20 last:border-0 hover:bg-surface-container/30 transition-colors">
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="font-semibold text-primary text-sm">{item.title || "—"}</span>
-                                    <span className="text-xs text-on-surface-variant">{fmtDate(item.date)}</span>
+                            {catEntries.length > 20 ? (
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-outline-variant/20">
+                                {Array.from({ length: Math.ceil(catEntries.length / 20) }, (_, col) => (
+                                  <div key={col} className="bg-surface-container-lowest">
+                                    {catEntries.slice(col * 20, col * 20 + 20).map(item => (
+                                      <div key={item.id}
+                                        className="flex items-start gap-3 px-5 py-3 border-b border-outline-variant/20 last:border-0 hover:bg-surface-container/30 transition-colors">
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="font-semibold text-primary text-sm">{item.title || "—"}</span>
+                                            <span className="text-xs text-on-surface-variant">{fmtDate(item.date)}</span>
+                                          </div>
+                                          {item.description && (
+                                            <p className="text-xs text-on-surface-variant mt-1 line-clamp-2">{item.description}</p>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          {onView && <button onClick={() => onView(item)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors"><Eye className="w-3.5 h-3.5" /></button>}
+                                          <button onClick={() => onEdit(item)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+                                          <button onClick={() => onDelete(item.id)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                                        </div>
+                                      </div>
+                                    ))}
                                   </div>
-                                  {item.description && (
-                                    <p className="text-xs text-on-surface-variant mt-1 line-clamp-2">{item.description}</p>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-1 shrink-0">
-                                  {onView && <button onClick={() => onView(item)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors"><Eye className="w-3.5 h-3.5" /></button>}
-                                  <button onClick={() => onEdit(item)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
-                                  <button onClick={() => onDelete(item.id)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-                                </div>
+                                ))}
                               </div>
-                            ))}
+                            ) : (
+                              catEntries.map(item => (
+                                <div key={item.id}
+                                  className="flex items-start gap-3 px-5 py-3 pl-12 border-b border-outline-variant/20 last:border-0 hover:bg-surface-container/30 transition-colors">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="font-semibold text-primary text-sm">{item.title || "—"}</span>
+                                      <span className="text-xs text-on-surface-variant">{fmtDate(item.date)}</span>
+                                    </div>
+                                    {item.description && (
+                                      <p className="text-xs text-on-surface-variant mt-1 line-clamp-2">{item.description}</p>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    {onView && <button onClick={() => onView(item)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors"><Eye className="w-3.5 h-3.5" /></button>}
+                                    <button onClick={() => onEdit(item)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+                                    <button onClick={() => onDelete(item.id)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                                  </div>
+                                </div>
+                              ))
+                            )}
                           </div>
                         )}
                       </div>
