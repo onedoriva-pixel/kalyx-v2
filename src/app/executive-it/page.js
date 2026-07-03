@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useCallback, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
 import { doc, onSnapshot, setDoc, getDoc } from "firebase/firestore";
@@ -9,8 +9,8 @@ import {
   MonitorSmartphone, LifeBuoy, Wrench, CheckSquare, Map, Ticket,
   History, Package, CheckCircle, Activity, Clock, BookOpen,
   Plus, Pencil, Eye, Trash2, Search, X, Save, AlertTriangle,
-  TrendingUp, Download, ChevronRight, Circle, CheckCircle2, FileSpreadsheet,
-  Play, Square,
+  TrendingUp, Download, ChevronRight, ChevronDown, Circle, CheckCircle2, FileSpreadsheet,
+  Play, Square, Folder,
 } from "lucide-react";
 import { downloadITServicesXLS, downloadITMaintenanceXLS, downloadITAccomplishmentsXLS } from "@/lib/exportXLS";
 
@@ -472,6 +472,173 @@ function AccomplishmentModal({ record, onSave, onClose }) {
 // ============================================================
 // GENERIC LIST VIEW
 // ============================================================
+// ============================================================
+// ACCOMPLISHMENTS GROUPED VIEW (by month → category)
+// ============================================================
+function fmtMonth(d) {
+  if (!d) return "No Date";
+  try { return new Date(d).toLocaleDateString("en-PH", { year: "numeric", month: "long" }); }
+  catch { return d; }
+}
+
+function monthKey(d) {
+  if (!d) return "0000-00";
+  try {
+    const dt = new Date(d);
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
+  } catch { return "0000-00"; }
+}
+
+function AccomplishmentsGroupedView({ items, onAdd, onEdit, onDelete, onView, onExportXLS }) {
+  const [search, setSearch] = useState("");
+  const [expandedMonths, setExpandedMonths] = useState({});
+  const [expandedCats, setExpandedCats] = useState({});
+
+  const filtered = items.filter(item =>
+    !search || Object.values(item).some(v => String(v).toLowerCase().includes(search.toLowerCase()))
+  );
+
+  const grouped = useMemo(() => {
+    const map = {};
+    for (const item of filtered) {
+      const mk = monthKey(item.date);
+      const ml = fmtMonth(item.date);
+      const cat = item.category || "Uncategorized";
+      if (!map[mk]) map[mk] = { label: ml, categories: {} };
+      if (!map[mk].categories[cat]) map[mk].categories[cat] = [];
+      map[mk].categories[cat].push(item);
+    }
+    return Object.entries(map)
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([key, val]) => ({ key, ...val }));
+  }, [filtered]);
+
+  const totalEntries = filtered.length;
+
+  if (grouped.length === 0) {
+    return (
+      <div className="p-4 md:p-8 max-w-screen-2xl mx-auto animate-fade-in">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div>
+            <h2 className="text-3xl font-bold text-primary flex items-center gap-3">
+              <CheckCircle className="w-7 h-7 text-emerald-500" /> Daily Accomplishments
+            </h2>
+            <p className="text-on-surface-variant mt-1">0 records</p>
+          </div>
+        </div>
+        <div className="text-center py-20 text-on-surface-variant">
+          <CheckCircle className="w-16 h-16 text-on-surface-variant/20 mx-auto mb-4" />
+          <p className="font-medium">No records found</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 md:p-8 max-w-screen-2xl mx-auto animate-fade-in">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div>
+          <h2 className="text-3xl font-bold text-primary flex items-center gap-3">
+            <CheckCircle className="w-7 h-7 text-emerald-500" /> Daily Accomplishments
+          </h2>
+          <p className="text-on-surface-variant mt-1">{totalEntries} records</p>
+        </div>
+        <div className="flex gap-2">
+          {onExportXLS && (
+            <button onClick={onExportXLS}
+              className="flex items-center gap-2 border border-outline-variant text-on-surface-variant px-4 py-2.5 rounded-xl font-semibold hover:bg-surface-container transition-colors">
+              <FileSpreadsheet className="w-4 h-4" /> Export XLS
+            </button>
+          )}
+          <button onClick={onAdd}
+            className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-violet-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-sm">
+            <Plus className="w-4 h-4" /> Add New
+          </button>
+        </div>
+      </div>
+
+      <div className="relative mb-5">
+        <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+        <input value={search} onChange={e => setSearch(e.target.value)}
+          className="w-full bg-surface-container border border-outline-variant rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-primary transition-colors"
+          placeholder="Search accomplishments..." />
+      </div>
+
+      {/* Months */}
+      <div className="space-y-3">
+        {grouped.map(month => {
+          const isMonthOpen = expandedMonths[month.key] ?? false;
+          const cats = Object.entries(month.categories).sort(([a], [b]) => a.localeCompare(b));
+          const monthEntryCount = cats.reduce((sum, [, entries]) => sum + entries.length, 0);
+          return (
+            <div key={month.key} className="bg-surface-container-lowest border border-outline-variant rounded-2xl shadow-sm overflow-hidden">
+              {/* Month Header */}
+              <button onClick={() => setExpandedMonths(prev => ({ ...prev, [month.key]: !prev[month.key] }))}
+                className="w-full flex items-center justify-between px-5 py-4 hover:bg-surface-container/60 transition-colors">
+                <div className="flex items-center gap-3">
+                  <Folder className={`w-5 h-5 text-indigo-400 transition-transform ${isMonthOpen ? "" : "text-amber-400"}`} />
+                  <span className="text-lg font-bold text-primary">{month.label}</span>
+                  <span className="text-xs font-semibold bg-surface-container px-2.5 py-1 rounded-full text-on-surface-variant">{monthEntryCount} entries</span>
+                </div>
+                <ChevronDown className={`w-5 h-5 text-on-surface-variant transition-transform ${isMonthOpen ? "rotate-0" : "-rotate-90"}`} />
+              </button>
+
+              {/* Categories (only when month expanded) */}
+              {isMonthOpen && (
+                <div className="border-t border-outline-variant/50">
+                  {cats.map(([catName, catEntries]) => {
+                    const catKey = `${month.key}::${catName}`;
+                    const isCatOpen = expandedCats[catKey] ?? false;
+                    return (
+                      <div key={catName}>
+                        {/* Category Header */}
+                        <button onClick={() => setExpandedCats(prev => ({ ...prev, [catKey]: !prev[catKey] }))}
+                          className="w-full flex items-center justify-between px-5 py-3 hover:bg-surface-container/40 transition-colors border-b border-outline-variant/30 last:border-0">
+                          <div className="flex items-center gap-3 pl-4">
+                            <div className={`w-2 h-2 rounded-full ${catName.toLowerCase().includes("technical") ? "bg-blue-500" : "bg-emerald-500"}`} />
+                            <span className="text-sm font-semibold text-on-surface">{catName}</span>
+                            <span className="text-xs font-medium bg-surface-container px-2 py-0.5 rounded-full text-on-surface-variant">{catEntries.length}</span>
+                          </div>
+                          <ChevronDown className={`w-4 h-4 text-on-surface-variant transition-transform ${isCatOpen ? "rotate-0" : "-rotate-90"}`} />
+                        </button>
+
+                        {/* Entries (only when category expanded) */}
+                        {isCatOpen && (
+                          <div>
+                            {catEntries.map(item => (
+                              <div key={item.id}
+                                className="flex items-start gap-3 px-5 py-3 pl-12 border-b border-outline-variant/20 last:border-0 hover:bg-surface-container/30 transition-colors">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-semibold text-primary text-sm">{item.title || "—"}</span>
+                                    <span className="text-xs text-on-surface-variant">{fmtDate(item.date)}</span>
+                                  </div>
+                                  {item.description && (
+                                    <p className="text-xs text-on-surface-variant mt-1 line-clamp-2">{item.description}</p>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  {onView && <button onClick={() => onView(item)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors"><Eye className="w-3.5 h-3.5" /></button>}
+                                  <button onClick={() => onEdit(item)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+                                  <button onClick={() => onDelete(item.id)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function GenericListView({ title, icon, items, fields, columns, onAdd, onEdit, onDelete, onView, onExportXLS }) {
   const [search, setSearch] = useState("");
   const filtered = items.filter(item =>
@@ -1395,6 +1562,28 @@ function ExecutiveITDashboardInner() {
       logs={userData.it_auditlog || []}
       onSave={(list) => saveKey("it_auditlog", list)}
     />;
+  }
+
+  // Accomplishments – grouped by month then category
+  if (view === "accomplishments") {
+    const list = (userData.it_accomplishments || []).sort((a, b) => ((b.date || "") > (a.date || "") ? 1 : -1));
+    const editing = modal && modal !== "new" ? modal : null;
+    return (
+      <>
+        {editing !== null || modal === "new" ? (
+          <AccomplishmentModal record={editing} onSave={(item) => handleSave(view, "it_accomplishments", item)} onClose={() => setModal(null)} />
+        ) : null}
+        <ViewDetailsModal record={viewRecord} title="Daily Accomplishments" onClose={() => setViewRecord(null)} />
+        <AccomplishmentsGroupedView
+          items={list}
+          onAdd={() => setModal("new")}
+          onEdit={(item) => setModal(item)}
+          onView={(item) => setViewRecord(item)}
+          onDelete={(id) => handleDelete("it_accomplishments", id)}
+          onExportXLS={() => downloadITAccomplishmentsXLS(list)}
+        />
+      </>
+    );
   }
 
   // All other configured views
