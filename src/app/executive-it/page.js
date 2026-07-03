@@ -123,18 +123,22 @@ function ViewDetailsModal({ record, title, onClose }) {
           <h3 className="text-lg font-bold text-primary">{title || "Details"}</h3>
           <button onClick={onClose} className="p-2 rounded-xl text-on-surface-variant hover:bg-surface-container transition-colors"><X className="w-5 h-5" /></button>
         </div>
-        <div className="p-6 space-y-3">
-          {Object.entries(record)
-            .filter(([k]) => !ignoreKeys.includes(k))
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([key, val]) => (
-              <div key={key} className="flex flex-col gap-0.5">
-                <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">{labelFromKey(key)}</span>
-                <span className="text-sm text-on-surface">{renderValue(key, val)}</span>
-              </div>
-            ))}
+        <div className="p-4">
+          <table className="w-full text-sm">
+            <tbody>
+              {Object.entries(record)
+                .filter(([k]) => !ignoreKeys.includes(k))
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([key, val], i) => (
+                  <tr key={key} className={i % 2 === 0 ? "bg-surface-container/30" : ""}>
+                    <td className="px-4 py-2.5 text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider w-[35%] align-top">{labelFromKey(key)}</td>
+                    <td className="px-4 py-2.5 text-sm text-on-surface">{renderValue(key, val)}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
         </div>
-        <div className="flex p-6 pt-0">
+        <div className="flex p-6 pt-2">
           <button onClick={onClose} className="w-full border border-outline-variant text-on-surface-variant py-2.5 rounded-xl font-semibold hover:bg-surface-container transition-colors">Close</button>
         </div>
       </div>
