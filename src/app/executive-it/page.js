@@ -9,7 +9,7 @@ import {
   MonitorSmartphone, LifeBuoy, Wrench, CheckSquare, Map, Ticket,
   History, Package, CheckCircle, Activity, Clock, BookOpen,
   Plus, Pencil, Eye, Trash2, Search, X, Save, AlertTriangle,
-  TrendingUp, Download, ChevronRight, ChevronDown, Circle, CheckCircle2, FileSpreadsheet,
+  TrendingUp, Download, Upload, ChevronRight, ChevronDown, Circle, CheckCircle2, FileSpreadsheet,
   Play, Square, Folder,
 } from "lucide-react";
 import { downloadITServicesXLS, downloadITMaintenanceXLS, downloadITAccomplishmentsXLS } from "@/lib/exportXLS";
@@ -878,6 +878,314 @@ function MaintenanceGroupedView({ items, onAdd, onEdit, onDelete, onView, onExpo
   );
 }
 
+// ============================================================
+// INVENTORY GROUPED VIEW (by category, with in/out tracking)
+// ============================================================
+function InventoryGroupedView({ items, movements, onAdd, onEdit, onDelete, onView, onSaveMovements, onExportXLS }) {
+  const [search, setSearch] = useState("");
+  const [expandedCats, setExpandedCats] = useState({});
+  const [movementModal, setMovementModal] = useState(null);
+  const [movementItem, setMovementItem] = useState(null);
+  const [viewMovementsItem, setViewMovementsItem] = useState(null);
+
+  const filtered = items.filter(item =>
+    !search || Object.values(item).some(v => String(v).toLowerCase().includes(search.toLowerCase()))
+  );
+
+  const grouped = useMemo(() => {
+    const map = {};
+    for (const item of filtered) {
+      const cat = item.category || "Other";
+      if (!map[cat]) map[cat] = { entries: [] };
+      map[cat].entries.push(item);
+    }
+    return Object.entries(map)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, val]) => ({
+        key,
+        entries: val.entries.sort((a, b) => ((a.name || "") > (b.name || "") ? 1 : -1)),
+      }));
+  }, [filtered]);
+
+  const totalItems = filtered.length;
+  const inStock = filtered.filter(i => (i.stockStatus || "in-stock") === "in-stock").length;
+  const issued = totalItems - inStock;
+
+  // Movements for the selected item
+  const itemMovements = useMemo(() => {
+    if (!viewMovementsItem) return [];
+    const itemName = viewMovementsItem.name || "";
+    const itemSerial = viewMovementsItem.serialNumber || "";
+    return (movements || []).filter(m =>
+      m.itemId === viewMovementsItem.id ||
+      m.itemName === itemName ||
+      (itemSerial && m.itemSerial === itemSerial)
+    ).sort((a, b) => ((b.date || "") > (a.date || "") ? 1 : -1));
+  }, [movements, viewMovementsItem]);
+
+  const handleAddMovement = async (movement) => {
+    const updated = [...(movements || []), movement];
+    await onSaveMovements(updated);
+  };
+
+  const handleDeleteMovement = async (movementId) => {
+    const updated = (movements || []).filter(m => m.id !== movementId);
+    await onSaveMovements(updated);
+  };
+
+  return (
+    <div className="p-4 md:p-8 max-w-screen-2xl mx-auto animate-fade-in">
+      {/* Movement Modal */}
+      {movementModal && movementItem && (
+        <MovementModal
+          item={movementItem}
+          type={movementModal}
+          onSave={handleAddMovement}
+          onClose={() => { setMovementModal(null); setMovementItem(null); }}
+        />
+      )}
+
+      {/* View Movements Modal */}
+      {viewMovementsItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-outline-variant sticky top-0 bg-surface-container-lowest z-10">
+              <h3 className="text-lg font-bold text-primary">Movements — {viewMovementsItem.name}</h3>
+              <button onClick={() => setViewMovementsItem(null)} className="p-2 rounded-xl text-on-surface-variant hover:bg-surface-container transition-colors"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-6">
+              {itemMovements.length === 0 ? (
+                <p className="text-sm text-on-surface-variant text-center py-8">No movements recorded yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {itemMovements.map(m => (
+                    <div key={m.id} className="flex items-start gap-3 p-3 rounded-xl bg-surface-container/30 border border-outline-variant/50">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${m.type === "in" ? "bg-emerald-100 text-emerald-700" : "bg-orange-100 text-orange-700"}`}>
+                        {m.type === "in" ? <Plus className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-semibold capitalize">{m.type === "in" ? "Stock In" : "Stock Out"}</span>
+                          <span className="text-xs bg-surface-container px-2 py-0.5 rounded-full text-on-surface-variant">Qty: {m.quantity || 1}</span>
+                          <span className="text-xs text-on-surface-variant">{fmtDate(m.date)}</span>
+                        </div>
+                        {m.reference && <p className="text-xs text-on-surface-variant mt-0.5">Ref: {m.reference}</p>}
+                        {m.notes && <p className="text-xs text-on-surface-variant mt-0.5">{m.notes}</p>}
+                      </div>
+                      <button onClick={() => handleDeleteMovement(m.id)} className="p-1 shrink-0 rounded-lg text-on-surface-variant hover:text-red-500 hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button onClick={() => setMovementItem(viewMovementsItem)}
+                className="mt-4 w-full bg-gradient-to-r from-indigo-500 to-violet-600 text-white py-2.5 rounded-xl font-semibold text-sm hover:opacity-90 transition-opacity">
+                Add Movement
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div>
+          <h2 className="text-3xl font-bold text-primary flex items-center gap-3">
+            <Package className="w-7 h-7 text-amber-500" /> IT Inventory
+          </h2>
+          <p className="text-on-surface-variant mt-1">{totalItems} items</p>
+        </div>
+        <div className="flex gap-2">
+          {onExportXLS && (
+            <button onClick={onExportXLS}
+              className="flex items-center gap-2 border border-outline-variant text-on-surface-variant px-4 py-2.5 rounded-xl font-semibold hover:bg-surface-container transition-colors">
+              <FileSpreadsheet className="w-4 h-4" /> Export XLS
+            </button>
+          )}
+          <button onClick={onAdd}
+            className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-violet-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-sm">
+            <Plus className="w-4 h-4" /> Add New
+          </button>
+        </div>
+      </div>
+
+      {/* Stock Summary */}
+      <div className="grid grid-cols-3 gap-4 mb-5">
+        <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/40 rounded-xl px-4 py-3">
+          <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">In Stock</p>
+          <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{inStock}</p>
+        </div>
+        <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/40 rounded-xl px-4 py-3">
+          <p className="text-xs font-semibold text-orange-600 dark:text-orange-400">Issued</p>
+          <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">{issued}</p>
+        </div>
+        <div className="bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/40 rounded-xl px-4 py-3">
+          <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">Total</p>
+          <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">{totalItems}</p>
+        </div>
+      </div>
+
+      <div className="relative mb-5">
+        <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+        <input value={search} onChange={e => setSearch(e.target.value)}
+          className="w-full bg-surface-container border border-outline-variant rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-primary transition-colors"
+          placeholder="Search inventory..." />
+      </div>
+
+      {grouped.length === 0 ? (
+        <div className="text-center py-20 text-on-surface-variant">
+          <Package className="w-16 h-16 text-on-surface-variant/20 mx-auto mb-4" />
+          <p className="font-medium">No records found</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {grouped.map(cat => {
+            const isOpen = expandedCats[cat.key] ?? true;
+            const catInStock = cat.entries.filter(i => (i.stockStatus || "in-stock") === "in-stock").length;
+            return (
+              <div key={cat.key} className="bg-surface-container-lowest border border-outline-variant rounded-2xl shadow-sm overflow-hidden">
+                <button onClick={() => setExpandedCats(prev => ({ ...prev, [cat.key]: !prev[cat.key] }))}
+                  className="w-full flex items-center justify-between px-5 py-4 hover:bg-surface-container/60 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <Folder className={`w-5 h-5 transition-transform ${isOpen ? "text-indigo-400" : "text-amber-400"}`} />
+                    <span className="text-lg font-bold text-primary">{cat.key}</span>
+                    <span className="text-xs font-semibold bg-surface-container px-2.5 py-1 rounded-full text-on-surface-variant">{cat.entries.length} items</span>
+                    <span className="text-xs font-semibold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full">{catInStock} in stock</span>
+                  </div>
+                  <ChevronDown className={`w-5 h-5 text-on-surface-variant transition-transform ${isOpen ? "rotate-0" : "-rotate-90"}`} />
+                </button>
+                {isOpen && (
+                  <div className="border-t border-outline-variant/50">
+                    {cat.entries.map(item => {
+                      const s = item.stockStatus || "in-stock";
+                      return (
+                        <div key={item.id}
+                          className="flex items-start gap-3 px-5 py-3 border-b border-outline-variant/20 last:border-0 hover:bg-surface-container/30 transition-colors">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-primary text-sm">{item.name || "—"}</span>
+                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-lg capitalize ${s === "in-stock" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" : "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300"}`}>
+                                {s === "in-stock" ? "In Stock" : "Issued"}
+                              </span>
+                              <span className="text-xs bg-surface-container px-2 py-0.5 rounded-full text-on-surface-variant">Qty: {item.quantity ?? 1}</span>
+                            </div>
+                            <div className="flex items-center gap-3 mt-1 text-xs text-on-surface-variant">
+                              {item.serialNumber && <span>SN: {item.serialNumber}</span>}
+                              {item.assignedTo && <><span>•</span><span>{item.assignedTo}</span></>}
+                              {item.stockInDate && <><span>•</span><span>In: {fmtDate(item.stockInDate)}</span></>}
+                              {item.stockOutDate && <><span>•</span><span>Out: {fmtDate(item.stockOutDate)}</span></>}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button onClick={() => { setMovementItem(item); setMovementModal("in"); }}
+                              className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-colors" title="Stock In">
+                              <Download className="w-3.5 h-3.5" />
+                            </button>
+                            <button onClick={() => { setMovementItem(item); setMovementModal("out"); }}
+                              className="p-1.5 rounded-lg text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/20 transition-colors" title="Stock Out">
+                              <Upload className="w-3.5 h-3.5" />
+                            </button>
+                            <button onClick={() => setViewMovementsItem(item)}
+                              className="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="View Movements">
+                              <History className="w-3.5 h-3.5" />
+                            </button>
+                            {onView && <button onClick={() => onView(item)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors"><Eye className="w-3.5 h-3.5" /></button>}
+                            <button onClick={() => onEdit(item)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => onDelete(item.id)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// MOVEMENT MODAL (stock in / stock out)
+// ============================================================
+function MovementModal({ item, type, onSave, onClose }) {
+  const [form, setForm] = useState({
+    id: Date.now(),
+    itemId: item.id,
+    itemName: item.name,
+    itemSerial: item.serialNumber || "",
+    type: type || "in",
+    quantity: 1,
+    date: new Date().toISOString().slice(0, 10),
+    reference: "",
+    person: "",
+    notes: "",
+  });
+
+  const handleSave = async () => {
+    await onSave(form);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between p-6 border-b border-outline-variant sticky top-0 bg-surface-container-lowest z-10">
+          <h3 className="text-lg font-bold text-primary capitalize">{form.type === "in" ? "Stock In" : "Stock Out"} — {item.name}</h3>
+          <button onClick={onClose} className="p-2 rounded-xl text-on-surface-variant hover:bg-surface-container transition-colors"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="flex gap-2">
+            <button onClick={() => setForm(prev => ({ ...prev, type: "in" }))}
+              className={`flex-1 py-2.5 rounded-xl font-semibold text-sm transition-colors ${form.type === "in" ? "bg-emerald-100 text-emerald-700 border border-emerald-300" : "bg-surface-container text-on-surface-variant border border-outline-variant"}`}>
+              Stock In
+            </button>
+            <button onClick={() => setForm(prev => ({ ...prev, type: "out" }))}
+              className={`flex-1 py-2.5 rounded-xl font-semibold text-sm transition-colors ${form.type === "out" ? "bg-orange-100 text-orange-700 border border-orange-300" : "bg-surface-container text-on-surface-variant border border-outline-variant"}`}>
+              Stock Out
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Quantity</label>
+              <input type="number" min="1" value={form.quantity} onChange={e => setForm(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Date</label>
+              <input type="date" value={form.date} onChange={e => setForm(prev => ({ ...prev, date: e.target.value }))}
+                className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Reference / PO #</label>
+            <input value={form.reference} onChange={e => setForm(prev => ({ ...prev, reference: e.target.value }))}
+              className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary" placeholder="e.g. PO-2026-001" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Person / Department</label>
+            <input value={form.person} onChange={e => setForm(prev => ({ ...prev, person: e.target.value }))}
+              className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary" placeholder="Who received/released?" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Notes</label>
+            <textarea rows={2} value={form.notes} onChange={e => setForm(prev => ({ ...prev, notes: e.target.value }))}
+              className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary resize-none" placeholder="Reason for stock in/out..." />
+          </div>
+        </div>
+        <div className="flex gap-3 p-6 pt-0">
+          <button onClick={onClose} className="flex-1 border border-outline-variant text-on-surface-variant py-2.5 rounded-xl font-semibold hover:bg-surface-container transition-colors">Cancel</button>
+          <button onClick={handleSave}
+            className="flex-1 bg-gradient-to-r from-indigo-500 to-violet-600 text-white py-2.5 rounded-xl font-semibold hover:opacity-90 transition-opacity">
+            <Save className="w-4 h-4 inline mr-1" /> Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function GenericListView({ title, icon, items, fields, columns, onAdd, onEdit, onDelete, onView, onExportXLS }) {
   const [search, setSearch] = useState("");
   const filtered = items.filter(item =>
@@ -1004,6 +1312,10 @@ const VIEWS_CONFIG = {
       { key: "name", label: "Item Name", placeholder: "e.g. Dell Laptop" },
       { key: "category", label: "Category", type: "select", options: ["Computer", "Network", "Peripheral", "Storage", "Other"] },
       { key: "serialNumber", label: "Serial Number", placeholder: "SN/Asset tag" },
+      { key: "quantity", label: "Quantity", type: "number", placeholder: "1" },
+      { key: "stockStatus", label: "Stock Status", type: "select", options: ["in-stock", "issued"] },
+      { key: "stockInDate", label: "Date Received", type: "date" },
+      { key: "stockOutDate", label: "Date Issued", type: "date" },
       { key: "assignedTo", label: "Assigned To", placeholder: "User or department" },
       { key: "purchaseDate", label: "Purchase Date", type: "date" },
       { key: "status", label: "Status", type: "select", options: ["active", "in-repair", "decommissioned", "spare"] },
@@ -1013,6 +1325,11 @@ const VIEWS_CONFIG = {
       { key: "name", label: "Item", render: r => <span className="font-semibold text-primary">{r.name || "—"}</span> },
       { key: "category", label: "Category" },
       { key: "serialNumber", label: "Serial #" },
+      { key: "quantity", label: "Qty" },
+      { key: "stockStatus", label: "Stock", render: r => {
+        const s = r.stockStatus || "in-stock";
+        return <span className={`text-xs font-semibold px-2 py-0.5 rounded-lg capitalize ${s === "in-stock" ? "bg-emerald-100 text-emerald-700" : "bg-orange-100 text-orange-700"}`}>{s === "in-stock" ? "In Stock" : "Issued"}</span>;
+      }},
       { key: "assignedTo", label: "Assigned To" },
       { key: "status", label: "Status", render: r => <span className={`text-xs font-semibold px-2 py-0.5 rounded-lg capitalize ${STATUS_BADGE[r.status] || ""}`}>{r.status || "—"}</span> },
     ],
@@ -1755,6 +2072,10 @@ function ExecutiveITDashboardInner() {
     await saveKey(dataKey, list);
   };
 
+  const handleSaveMovements = useCallback(async (movements) => {
+    await saveKey("it_inventory_movements", movements);
+  }, [saveKey]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -1865,6 +2186,31 @@ function ExecutiveITDashboardInner() {
           onView={(item) => setViewRecord(item)}
           onDelete={(id) => handleDelete("it_maintenance", id)}
           onExportXLS={() => downloadITMaintenanceXLS(list)}
+        />
+      </>
+    );
+  }
+
+  // IT Inventory – grouped by category with in/out tracking
+  if (view === "inventory") {
+    const list = (userData.it_inventory || []).sort((a, b) => ((a.name || "") > (b.name || "") ? 1 : -1));
+    const movements = userData.it_inventory_movements || [];
+    const editing = modal && modal !== "new" ? modal : null;
+    return (
+      <>
+        {editing !== null || modal === "new" ? (
+          <RecordModal title="IT Inventory" fields={VIEWS_CONFIG.inventory.fields} record={editing}
+            onSave={(item) => handleSave(view, "it_inventory", item)} onClose={() => setModal(null)} />
+        ) : null}
+        <ViewDetailsModal record={viewRecord} title="IT Inventory" onClose={() => setViewRecord(null)} />
+        <InventoryGroupedView
+          items={list}
+          movements={movements}
+          onAdd={() => setModal("new")}
+          onEdit={(item) => setModal(item)}
+          onView={(item) => setViewRecord(item)}
+          onDelete={(id) => handleDelete("it_inventory", id)}
+          onSaveMovements={handleSaveMovements}
         />
       </>
     );
