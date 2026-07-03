@@ -50,13 +50,13 @@ export default function Login() {
       if (profileSnap.exists()) {
         const data = profileSnap.data();
         const role = (data.role || "").trim();
-        if (role === "admin" || data.is_admin || data.isAdmin) {
-          route = "/admin";
-        } else if (role === "executive_path") {
-          route = "/executive-path";
-        } else if (role === "executive_it") {
-          route = "/executive-it";
-        }
+      if (role === "admin") {
+        route = "/admin";
+      } else if (role === "executive_path") {
+        route = "/executive-path";
+      } else if (role === "executive_it") {
+        route = "/executive-it";
+      }
       }
 
       router.push(route);
