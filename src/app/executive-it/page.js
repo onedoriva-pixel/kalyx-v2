@@ -929,7 +929,7 @@ function InventoryGroupedView({ items, movements, onAdd, onEdit, onDelete, onVie
   };
 
   const handleDeleteMovement = async (movementId) => {
-    const updated = (movements || []).filter(m => m.id !== movementId);
+    const updated = (movements || []).filter(m => (m.timestamp ?? m.id) !== movementId);
     await onSaveMovements(updated);
   };
 
@@ -959,20 +959,20 @@ function InventoryGroupedView({ items, movements, onAdd, onEdit, onDelete, onVie
               ) : (
                 <div className="space-y-3">
                   {itemMovements.map(m => (
-                    <div key={m.id} className="flex items-start gap-3 p-3 rounded-xl bg-surface-container/30 border border-outline-variant/50">
+                    <div key={m.timestamp ?? m.id} className="flex items-start gap-3 p-3 rounded-xl bg-surface-container/30 border border-outline-variant/50">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${m.type === "in" ? "bg-emerald-100 text-emerald-700" : "bg-orange-100 text-orange-700"}`}>
                         {m.type === "in" ? <Plus className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-semibold capitalize">{m.type === "in" ? "Stock In" : "Stock Out"}</span>
-                          <span className="text-xs bg-surface-container px-2 py-0.5 rounded-full text-on-surface-variant">Qty: {m.quantity || 1}</span>
+                          <span className="text-xs bg-surface-container px-2 py-0.5 rounded-full text-on-surface-variant">Qty: {m.qty ?? m.quantity ?? 1}</span>
                           <span className="text-xs text-on-surface-variant">{fmtDate(m.date)}</span>
                         </div>
                         {m.reference && <p className="text-xs text-on-surface-variant mt-0.5">Ref: {m.reference}</p>}
                         {m.notes && <p className="text-xs text-on-surface-variant mt-0.5">{m.notes}</p>}
                       </div>
-                      <button onClick={() => handleDeleteMovement(m.id)} className="p-1 shrink-0 rounded-lg text-on-surface-variant hover:text-red-500 hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => handleDeleteMovement(m.timestamp ?? m.id)} className="p-1 shrink-0 rounded-lg text-on-surface-variant hover:text-red-500 hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   ))}
                 </div>
@@ -1111,12 +1111,13 @@ function InventoryGroupedView({ items, movements, onAdd, onEdit, onDelete, onVie
 // ============================================================
 function MovementModal({ item, type, onSave, onClose }) {
   const [form, setForm] = useState({
+    timestamp: Date.now(),
     id: Date.now(),
     itemId: item.id,
     itemName: item.name,
     itemSerial: item.serialNumber || "",
     type: type || "in",
-    quantity: 1,
+    qty: 1,
     date: new Date().toISOString().slice(0, 10),
     reference: "",
     person: "",
@@ -1149,7 +1150,7 @@ function MovementModal({ item, type, onSave, onClose }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Quantity</label>
-              <input type="number" min="1" value={form.quantity} onChange={e => setForm(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+              <input type="number" min="1" value={form.qty} onChange={e => setForm(prev => ({ ...prev, qty: parseInt(e.target.value) || 1 }))}
                 className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary" />
             </div>
             <div>
