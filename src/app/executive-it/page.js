@@ -1810,6 +1810,8 @@ function AuditLogView({ logs, onSave }) {
 }
 function PlannerView({ items, onSaveList }) {
   const [modal, setModal] = useState(null);
+  const [newChecklist, setNewChecklist] = useState({});
+  const [expandedPlans, setExpandedPlans] = useState({});
 
   const fields = [
     { key: "title", label: "Plan Title", placeholder: "e.g. Network Upgrade Q3" },
@@ -1831,6 +1833,39 @@ function PlannerView({ items, onSaveList }) {
     await onSaveList(items.filter(p => p.id !== id));
   };
 
+  const updatePlan = async (planId, changes) => {
+    await onSaveList(items.map(p => p.id === planId ? { ...p, ...changes } : p));
+  };
+
+  const toggleCheck = async (planId, checkId) => {
+    const plan = items.find(p => p.id === planId);
+    if (!plan) return;
+    const updatedChecklist = (plan.checklist || []).map(c =>
+      c.id === checkId ? { ...c, done: !c.done } : c
+    );
+    await updatePlan(planId, { checklist: updatedChecklist });
+  };
+
+  const addCheckItem = async (planId) => {
+    const text = (newChecklist[planId] || "").trim();
+    if (!text) return;
+    const plan = items.find(p => p.id === planId);
+    if (!plan) return;
+    const newItem = { id: Date.now(), text, done: false };
+    await updatePlan(planId, { checklist: [...(plan.checklist || []), newItem] });
+    setNewChecklist(prev => ({ ...prev, [planId]: "" }));
+  };
+
+  const removeCheckItem = async (planId, checkId) => {
+    const plan = items.find(p => p.id === planId);
+    if (!plan) return;
+    await updatePlan(planId, { checklist: (plan.checklist || []).filter(c => c.id !== checkId) });
+  };
+
+  const planned = items.filter(p => p.status === "planning").length;
+  const inProgress = items.filter(p => p.status === "in-progress").length;
+  const completed = items.filter(p => p.status === "completed").length;
+
   return (
     <>
       {modal && <RecordModal title="IT Plan" fields={fields} record={modal === "new" ? {} : modal} onSave={handleSave} onClose={() => setModal(null)} />}
@@ -1841,12 +1876,6 @@ function PlannerView({ items, onSaveList }) {
             <p className="text-on-surface-variant mt-1">{items.length} plans</p>
           </div>
           <div className="flex gap-2">
-            {items.length > 0 && (
-              <button onClick={() => downloadITAccomplishmentsXLS(items)}
-                className="flex items-center gap-2 border border-outline-variant text-on-surface-variant px-4 py-2.5 rounded-xl font-semibold hover:bg-surface-container transition-colors">
-                <FileSpreadsheet className="w-4 h-4" /> Export XLS
-              </button>
-            )}
             <button onClick={() => setModal("new")}
               className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-violet-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-sm">
               <Plus className="w-4 h-4" /> New Plan
@@ -1854,17 +1883,41 @@ function PlannerView({ items, onSaveList }) {
           </div>
         </div>
 
+        {/* Summary */}
+        {items.length > 0 && (
+          <div className="grid grid-cols-3 gap-4 mb-5">
+            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 rounded-xl px-4 py-3">
+              <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">Planning</p>
+              <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{planned}</p>
+            </div>
+            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl px-4 py-3">
+              <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">In Progress</p>
+              <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">{inProgress}</p>
+            </div>
+            <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/40 rounded-xl px-4 py-3">
+              <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Completed</p>
+              <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{completed}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Plans Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {items.length === 0 ? (
             <div className="col-span-3 text-center py-16 text-on-surface-variant">
               <Map className="w-14 h-14 mx-auto mb-3 opacity-20" />
               <p className="font-medium">No plans yet. Start planning!</p>
             </div>
-          ) : items.map(plan => {
+          ) : items.sort((a, b) => ((a.targetDate || "") > (b.targetDate || "") ? 1 : -1)).map(plan => {
             const statusColors = {
               planning: "bg-blue-100 text-blue-700", "in-progress": "bg-amber-100 text-amber-700",
               completed: "bg-emerald-100 text-emerald-700", "on-hold": "bg-slate-100 text-slate-600"
             };
+            const checklist = plan.checklist || [];
+            const total = checklist.length;
+            const done = checklist.filter(c => c.done).length;
+            const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+            const isExpanded = expandedPlans[plan.id] ?? false;
             return (
               <div key={plan.id} className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-5 shadow-sm hover:-translate-y-1 transition-transform group">
                 <div className="flex items-start justify-between mb-3">
@@ -1876,7 +1929,62 @@ function PlannerView({ items, onSaveList }) {
                 </div>
                 <h3 className="font-bold text-primary mb-2">{plan.title}</h3>
                 {plan.description && <p className="text-xs text-on-surface-variant line-clamp-3 mb-3">{plan.description}</p>}
-                {plan.targetDate && <p className="text-xs text-on-surface-variant font-semibold">🗓 {fmtDate(plan.targetDate)}</p>}
+
+                {/* Progress bar */}
+                {total > 0 && (
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between text-xs text-on-surface-variant mb-1">
+                      <span>Progress</span>
+                      <span className="font-semibold">{pct}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-surface-container rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all duration-500 ${pct === 100 ? "bg-emerald-500" : "bg-gradient-to-r from-indigo-400 to-violet-500"}`} style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                )}
+
+                {plan.targetDate && <p className="text-xs text-on-surface-variant font-semibold mb-2">🗓 {fmtDate(plan.targetDate)}</p>}
+
+                {/* Checklist */}
+                {total > 0 && (
+                  <div className="space-y-1 mb-2">
+                    {(isExpanded ? checklist : checklist.slice(0, 2)).map(c => (
+                      <label key={c.id} className="flex items-center gap-2 cursor-pointer select-none py-0.5">
+                        <input type="checkbox" checked={c.done} onChange={() => toggleCheck(plan.id, c.id)}
+                          className="w-3.5 h-3.5 rounded accent-indigo-600 cursor-pointer" />
+                        <span className={`text-xs flex-1 ${c.done ? "line-through text-on-surface-variant/50" : "text-on-surface"}`}>{c.text}</span>
+                        <button onClick={(e) => { e.preventDefault(); removeCheckItem(plan.id, c.id); }}
+                          className="p-0.5 rounded text-on-surface-variant/40 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </label>
+                    ))}
+                    {total > 2 && !isExpanded && (
+                      <button onClick={() => setExpandedPlans(prev => ({ ...prev, [plan.id]: true }))}
+                        className="text-xs text-indigo-500 hover:text-indigo-600 font-semibold">
+                        +{total - 2} more
+                      </button>
+                    )}
+                    {isExpanded && total > 2 && (
+                      <button onClick={() => setExpandedPlans(prev => ({ ...prev, [plan.id]: false }))}
+                        className="text-xs text-on-surface-variant hover:text-primary font-semibold">
+                        Show less
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Add checklist item */}
+                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-outline-variant/30">
+                  <input value={newChecklist[plan.id] || ""} onChange={e => setNewChecklist(prev => ({ ...prev, [plan.id]: e.target.value }))}
+                    onKeyDown={e => { if (e.key === "Enter") addCheckItem(plan.id); }}
+                    className="flex-1 bg-surface-container border border-outline-variant rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-primary"
+                    placeholder="Add checklist item..." />
+                  <button onClick={() => addCheckItem(plan.id)} disabled={!(newChecklist[plan.id] || "").trim()}
+                    className="p-1.5 rounded-lg bg-indigo-100 text-indigo-600 hover:bg-indigo-200 disabled:opacity-40 transition-colors">
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             );
           })}
