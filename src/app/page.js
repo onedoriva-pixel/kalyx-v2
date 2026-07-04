@@ -1,7 +1,7 @@
 import Link from "next/link"
 import {
   ArrowRight, Shield, LifeBuoy, LogIn, Activity, Route,
-  MonitorSmartphone, Wrench, BarChart3, CheckCircle, Users,
+  MonitorSmartphone, Wrench, CheckCircle, Users,
   FileSpreadsheet, BookOpen, ExternalLink
 } from "lucide-react"
 

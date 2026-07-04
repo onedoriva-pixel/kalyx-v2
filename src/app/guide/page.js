@@ -5,10 +5,10 @@ import { auth } from "@/lib/firebase"
 import { onAuthStateChanged } from "firebase/auth"
 import { useRouter } from "next/navigation"
 import {
-  BookOpen, LogIn, LayoutDashboard, Route, ListTodo, Pencil,
+  BookOpen, LogIn, LayoutDashboard, Route,
   BarChart3, Settings, Shield, Moon, Star, ChevronRight,
-  MonitorSmartphone, Wrench, ClipboardList, FileSpreadsheet,
-  PlusCircle, Columns, Map, FileEdit, StickyNote, Truck,
+  Wrench, ClipboardList, FileSpreadsheet,
+  Columns, Map, FileEdit, StickyNote, Truck,
   Package, Ticket, Clock, Book, LifeBuoy, Search
 } from "lucide-react"
 

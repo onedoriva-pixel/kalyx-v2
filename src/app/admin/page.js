@@ -4,14 +4,14 @@ import { useEffect, useState, useMemo, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
 import {
-  collection, onSnapshot, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc,
+  collection, onSnapshot, doc, getDoc, getDocs, setDoc, deleteDoc,
 } from "firebase/firestore";
 import {
   Users, CheckSquare, Map, PlaneTakeoff, ShieldAlert, FileEdit,
-  Database, Search, Ticket, Activity, Package, Wrench, LifeBuoy,
+  Database, Search, Ticket, Activity, Wrench,
   X, Save, Pencil, Trash2, ChevronRight, TrendingUp, ShieldCheck,
-  Filter, Calendar, User, Clock, AlertCircle, CheckCircle2, Circle, Info,
-  Download, Upload, AlertTriangle, Loader2,
+  Calendar, User, Clock, CheckCircle2, Circle, Info,
+  Download, Upload, AlertTriangle,
 } from "lucide-react";
 
 // ============================================================

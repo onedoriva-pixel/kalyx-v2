@@ -7,8 +7,8 @@ import { collection, query, where, onSnapshot, doc, updateDoc, setDoc, getDoc } 
 
 import {
   Loader2, Plus, Clock, CheckCircle2, Circle, AlertCircle,
-  ListTodo, LayoutDashboard, Columns, Map, FileEdit, StickyNote,
-  Trash2, Edit, Calendar, User, Eye, EyeOff, X, XCircle, Save, Download, FileSpreadsheet
+  Columns, Map, FileEdit,
+  Trash2, Edit, Calendar, User, Eye, X, XCircle, Save, Download, FileSpreadsheet
 } from "lucide-react";
 import { downloadTasksXLS } from "@/lib/exportXLS";
 

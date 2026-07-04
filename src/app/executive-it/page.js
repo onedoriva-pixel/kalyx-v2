@@ -6,10 +6,10 @@ import { auth, db } from "@/lib/firebase";
 import { doc, onSnapshot, setDoc, getDoc } from "firebase/firestore";
 
 import {
-  MonitorSmartphone, LifeBuoy, Wrench, CheckSquare, Map, Ticket,
+  LifeBuoy, Wrench, CheckSquare, Map, Ticket,
   History, Package, CheckCircle, Activity, Clock, BookOpen,
-  Plus, Pencil, Eye, Trash2, Search, X, Save, AlertTriangle,
-  TrendingUp, Download, Upload, ChevronRight, ChevronDown, Circle, CheckCircle2, FileSpreadsheet,
+  Plus, Pencil, Eye, Trash2, Search, X, Save,
+  Download, Upload, ChevronRight, ChevronDown, Circle, CheckCircle2, FileSpreadsheet,
   Play, Square, Folder, ChevronLeft,
 } from "lucide-react";
 import { downloadITServicesXLS, downloadITMaintenanceXLS, downloadITAccomplishmentsXLS } from "@/lib/exportXLS";
@@ -792,6 +792,8 @@ function ServicesGroupedView({ items, onAdd, onEdit, onDelete, onView, onExportX
 // ============================================================
 // MAINTENANCE GROUPED VIEW (by frequency type)
 // ============================================================
+const FREQ_ORDER = ["Daily", "Weekly", "Monthly", "Quarterly", "Annually", "One-time"];
+
 function MaintenanceGroupedView({ items, onAdd, onEdit, onDelete, onView, onExportXLS }) {
   const [search, setSearch] = useState("");
   const [expandedGroups, setExpandedGroups] = useState({});
@@ -799,8 +801,6 @@ function MaintenanceGroupedView({ items, onAdd, onEdit, onDelete, onView, onExpo
   const filtered = items.filter(item =>
     !search || Object.values(item).some(v => String(v).toLowerCase().includes(search.toLowerCase()))
   );
-
-  const FREQ_ORDER = ["Daily", "Weekly", "Monthly", "Quarterly", "Annually", "One-time"];
 
   const grouped = useMemo(() => {
     const map = {};
@@ -1142,7 +1142,7 @@ function InventoryGroupedView({ items, movements, onAdd, onEdit, onDelete, onVie
 // MOVEMENT MODAL (stock in / stock out)
 // ============================================================
 function MovementModal({ item, type, onSave, onClose }) {
-  const [form, setForm] = useState({
+  const [form, setForm] = useState(() => ({
     timestamp: Date.now(),
     type: type || "in",
     qty: 1,
@@ -1150,7 +1150,7 @@ function MovementModal({ item, type, onSave, onClose }) {
     reference: "",
     person: "",
     notes: "",
-  });
+  }));
 
   const handleSave = async () => {
     await onSave({ ...form, itemName: item.name, itemId: item.id });

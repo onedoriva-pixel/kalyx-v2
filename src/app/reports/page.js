@@ -77,7 +77,7 @@ export default function ReportsPage() {
   const [trips, setTrips] = useState([])
   const [loading, setLoading] = useState(true)
   const [authChecked, setAuthChecked] = useState(false)
-  const [year, setYear] = useState(new Date().getFullYear().toString())
+  const [year, setYear] = useState(() => new Date().getFullYear().toString())
   const [search, setSearch] = useState("")
   const router = useRouter()
 

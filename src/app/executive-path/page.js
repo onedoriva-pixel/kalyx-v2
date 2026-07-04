@@ -6,9 +6,9 @@ import { useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
 import { doc, onSnapshot, setDoc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import {
-  PlaneTakeoff, Plus, CheckCircle2, XCircle, BarChart3,
+  PlaneTakeoff, Plus, CheckCircle2,
   Calendar, Pencil, Eye, Trash2, Search, X, Save, User,
-  Car, MapPin, Clock, FileText, Filter, Download, TrendingUp, FileSpreadsheet,
+  MapPin, Download, TrendingUp, FileSpreadsheet,
 } from "lucide-react";
 import { downloadTripsXLS } from "@/lib/exportXLS";
 
